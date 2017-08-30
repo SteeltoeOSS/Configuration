@@ -22,9 +22,11 @@ namespace Steeltoe.Extensions.Configuration.CloudFoundry
 {
     public class CloudFoundryConfigurationSource : IConfigurationSource
     {
+        public ICloudFoundrySettingsReader SettingsReader { get; set; }
+
         public IConfigurationProvider Build(IConfigurationBuilder builder)
         {
-            return new CloudFoundryConfigurationProvider(new CloudFoundryEnvironmentSettingsReader());
+            return new CloudFoundryConfigurationProvider(this.SettingsReader ?? new CloudFoundryEnvironmentSettingsReader());
         }
     }
 }

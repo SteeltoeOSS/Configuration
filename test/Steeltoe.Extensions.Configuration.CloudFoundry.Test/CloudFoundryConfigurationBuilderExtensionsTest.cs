@@ -37,6 +37,8 @@ namespace Steeltoe.Extensions.Configuration.CloudFoundry.Test
             var ex = Assert.Throws<ArgumentNullException>(() => CloudFoundryConfigurationBuilderExtensions.AddCloudFoundry(configurationBuilder));
             Assert.Contains(nameof(configurationBuilder), ex.Message);
 
+            var ex2 = Assert.Throws<ArgumentNullException>(() => CloudFoundryConfigurationBuilderExtensions.AddCloudFoundry(configurationBuilder, null));
+            Assert.Contains(nameof(configurationBuilder), ex2.Message);
         }
 
         [Fact]

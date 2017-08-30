@@ -24,13 +24,17 @@ namespace Steeltoe.Extensions.Configuration
     {
         public static IConfigurationBuilder AddCloudFoundry(this IConfigurationBuilder configurationBuilder)
         {
+            return configurationBuilder.AddCloudFoundry(null);
+        }
+
+        public static IConfigurationBuilder AddCloudFoundry(this IConfigurationBuilder configurationBuilder, ICloudFoundrySettingsReader settingsReader)
+        {
             if (configurationBuilder == null)
             {
                 throw new ArgumentNullException(nameof(configurationBuilder));
             }
 
-            configurationBuilder.Add(new CloudFoundryConfigurationSource());
-            return configurationBuilder;
+            return configurationBuilder.Add(new CloudFoundryConfigurationSource { SettingsReader = settingsReader });
         }
     }
 }
