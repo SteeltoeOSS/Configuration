@@ -14,23 +14,17 @@
 // limitations under the License.
 //
 
-using Microsoft.Extensions.Configuration;
-using Steeltoe.Extensions.Configuration.CloudFoundry;
 using System;
+using System.Linq;
+using Microsoft.Extensions.Configuration;
 
-namespace Steeltoe.Extensions.Configuration
+namespace Steeltoe.Extensions.Configuration.CloudFoundry
 {
-    public static class CloudFoundryConfigurationBuilderExtensions
+    public class CloudFoundryConfigurationSource : IConfigurationSource
     {
-        public static IConfigurationBuilder AddCloudFoundry(this IConfigurationBuilder configurationBuilder)
+        public IConfigurationProvider Build(IConfigurationBuilder builder)
         {
-            if (configurationBuilder == null)
-            {
-                throw new ArgumentNullException(nameof(configurationBuilder));
-            }
-
-            configurationBuilder.Add(new CloudFoundryConfigurationSource());
-            return configurationBuilder;
+            return new CloudFoundryConfigurationProvider();
         }
     }
 }

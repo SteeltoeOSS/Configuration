@@ -24,7 +24,7 @@ using Microsoft.Extensions.Configuration.Json;
 
 namespace Steeltoe.Extensions.Configuration.CloudFoundry
 {
-    public class CloudFoundryConfigurationProvider : ConfigurationProvider, IConfigurationSource
+    public class CloudFoundryConfigurationProvider : ConfigurationProvider
     {
         private const string VCAP_PREFIX = "VCAP_";
         private const string APPLICATION = "APPLICATION";
@@ -39,6 +39,7 @@ namespace Steeltoe.Extensions.Configuration.CloudFoundry
         public CloudFoundryConfigurationProvider()
         {
         }
+
         public override void Load()
         {
             var builder = new ConfigurationBuilder();
@@ -140,11 +141,6 @@ namespace Steeltoe.Extensions.Configuration.CloudFoundry
             if (string.IsNullOrEmpty(section.Value))
                 return;
             Data[prefix + ConfigurationPath.KeyDelimiter + section.Path] = section.Value;
-        }
-
-        public IConfigurationProvider Build(IConfigurationBuilder builder)
-        {
-            return this;
         }
 
         internal static MemoryStream GetMemoryStream(string json)

@@ -40,7 +40,7 @@ namespace Steeltoe.Extensions.Configuration.CloudFoundry.Test
         }
 
         [Fact]
-        public void AddCloudFoundry_AddsConfigServerProviderToProvidersList()
+        public void AddCloudFoundry_AddsCloudFoundrySourceToSourcesList()
         {
             // Arrange
             var configurationBuilder = new ConfigurationBuilder();
@@ -48,16 +48,14 @@ namespace Steeltoe.Extensions.Configuration.CloudFoundry.Test
             // Act and Assert
             configurationBuilder.AddCloudFoundry();
 
-            CloudFoundryConfigurationProvider cloudProvider = null;
-            foreach (IConfigurationProvider provider in configurationBuilder.Sources)
+            CloudFoundryConfigurationSource cloudSource = null;
+            foreach (var source in configurationBuilder.Sources)
             {
-                cloudProvider = provider as CloudFoundryConfigurationProvider;
-                if (cloudProvider != null)
+                cloudSource = source as CloudFoundryConfigurationSource;
+                if (cloudSource != null)
                     break;
             }
-            Assert.NotNull(cloudProvider);
-
+            Assert.NotNull(cloudSource);
         }
-
     }
 }
