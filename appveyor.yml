@@ -1,4 +1,4 @@
-version: '1.1.1-{branch}-{build}'
+version: '2.0.0-{branch}-{build}'
 init:
   - git config --global core.autocrlf true
 image: Visual Studio 2017  
@@ -6,6 +6,7 @@ branches:
   only:
     - master
     - dev
+    - vnext
 install:
   - scripts\appveyor_install.cmd
 test_script:
@@ -46,3 +47,13 @@ deploy:
   on:
     branch: master
     appveyor_repo_tag: true
+- provider: NuGet
+  skip_symbols: false
+  artifact: /.*\.nupkg/
+  server: https://www.myget.org/F/steeltoevnext/api/v2/package
+  symbol_server: https://www.myget.org/F/steeltoevnext/symbols/api/v2/package
+  api_key:
+    secure: 246ApObnMYYvzDo9Ki72CxxuKfuoqYbrbUK2HLevGIGHXYY6f0OkAdE3EWCwNJ7g
+  on:
+    branch: vnext
+    appveyor_repo_tag: false    
