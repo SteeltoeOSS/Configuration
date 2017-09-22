@@ -6,7 +6,7 @@ branches:
   only:
     - master
     - dev
-    - /^update-[0-9]{3}/
+    - /^update[0-9]{3}/
 install:
   - scripts\appveyor_install.cmd
 test_script:
@@ -43,7 +43,7 @@ deploy:
   skip_symbols: true
   artifact: /.*\.nupkg/
   api_key:
-    secure: RGkpu8xIMDC75IAd1qPRdueeTaYj+ddW2bNEw8S7e81940ELu+WV04uWAzqV34/C
+    secure: RGkpu8xIMDC75IAd1qPRdueeTaYj+ddW2bNEw8S7e81940ELu+WV04uWAzqV3456
   on:
     branch: master
     appveyor_repo_tag: true
@@ -55,7 +55,7 @@ deploy:
   api_key:
     secure: 246ApObnMYYvzDo9Ki72CxxuKfuoqYbrbUK2HLevGIGHXYY6f0OkAdE3EWCwNJ7g
   on:
-    branch: /^update-[0-9]{3}/
+    branch: /^update[0-9]{3}/
     appveyor_repo_tag: false
 - provider: NuGet
   skip_symbols: true
@@ -65,5 +65,5 @@ deploy:
   api_key:
     secure: 246ApObnMYYvzDo9Ki72CxxuKfuoqYbrbUK2HLevGIGHXYY6f0OkAdE3EWCwNJ7g
   on:
-    branch: /^update-[0-9]{3}/
+    branch: /^update[0-9]{3}/
     appveyor_repo_tag: true        
