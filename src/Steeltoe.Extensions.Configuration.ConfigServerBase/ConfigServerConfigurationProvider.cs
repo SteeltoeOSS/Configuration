@@ -17,6 +17,7 @@ using Microsoft.Extensions.Logging;
 using Steeltoe.Common.Http;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.Design;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -25,13 +26,14 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Steeltoe.Common.HealthChecks;
 
 namespace Steeltoe.Extensions.Configuration.ConfigServer
 {
     /// <summary>
     /// A Spring Cloud Config Server based <see cref="ConfigurationProvider"/>.
     /// </summary>
-    public class ConfigServerConfigurationProvider : ConfigurationProvider, IConfigurationSource
+    public class ConfigServerConfigurationProvider : ConfigurationProvider, IConfigurationSource, IHealthContributor
     {
         /// <summary>
         /// The prefix (<see cref="IConfigurationSection"/> under which all Spring Cloud Config Server
@@ -438,5 +440,38 @@ namespace Steeltoe.Extensions.Configuration.ConfigServer
         {
             return HttpClientHelper.GetHttpClient(settings.ValidateCertificates, settings.Timeout);
         }
+
+        public HealthCheckResult Health()
+        {
+            var requestUri = GetConfigServerUri(null);
+            var request = GetRequestMessage(requestUri);
+            bool isSuccess = false;
+            var health = new HealthCheckResult();
+            try
+            {
+                var result = Task.Run(async () => await _client.SendAsync(request)).Result;
+                isSuccess = result.IsSuccessStatusCode;
+                if (isSuccess)
+                {
+                    health.Details.Add("status", HealthStatus.UP.ToString());
+                }
+                else
+                {
+                    health.Details.Add("status", $"Failure to retrieve config data");
+                    health.Details.Add("server-reply",result.Content.ReadAsStringAsync().Result);
+                }
+            }
+            catch (Exception e)
+            {
+                health.Details.Add("status", "DOWN");
+            }
+            
+            health.Status = isSuccess ? HealthStatus.UP : HealthStatus.OUT_OF_SERVICE;
+            
+            
+            return health;
+        }
+
+        public string Id => "config-server";
     }
 }
