@@ -17,6 +17,9 @@ using Microsoft.Extensions.Configuration;
 using Steeltoe.Common.Options.Autofac;
 using Steeltoe.Extensions.Configuration.ConfigServer;
 using System;
+using System.Linq;
+using Microsoft.Extensions.DependencyInjection;
+using Steeltoe.Common.HealthChecks;
 
 namespace Steeltoe.Extensions.Configuration.ConfigServer
 {
@@ -39,6 +42,17 @@ namespace Steeltoe.Extensions.Configuration.ConfigServer
 
             var section = config.GetSection(ConfigServerClientSettingsOptions.CONFIGURATION_PREFIX);
             container.RegisterOption<ConfigServerClientSettingsOptions>(section);
+        }
+        
+        public static void RegisterConfigServerHealthCheck(this ContainerBuilder services, IConfiguration configuration)
+        {
+            if(!(configuration is IConfigurationRoot root))
+                throw new ArgumentException($"Configuration must be a {nameof(IConfigurationRoot)}", nameof(configuration));
+            var configServerSource = root.Providers.FirstOrDefault(x => x is ConfigServerConfigurationProvider);
+            if(configServerSource == null)
+                throw new InvalidOperationException("Config server is not registered as one of the sources in the configuration");
+            services.RegisterInstance(configServerSource).As<IHealthContributor>();
+            
         }
     }
 }
