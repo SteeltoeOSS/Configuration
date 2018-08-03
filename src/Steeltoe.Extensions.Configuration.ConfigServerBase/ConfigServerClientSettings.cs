@@ -13,6 +13,7 @@
 // limitations under the License.
 
 using System;
+using System.Collections.ObjectModel;
 
 namespace Steeltoe.Extensions.Configuration.ConfigServer
 {
@@ -99,6 +100,7 @@ namespace Steeltoe.Extensions.Configuration.ConfigServer
             RetryAttempts = DEFAULT_MAX_RETRY_ATTEMPTS;
             RetryMultiplier = DEFAULT_RETRY_MULTIPLIER;
             Timeout = DEFAULT_TIMEOUT_MILLISECONDS;
+            Authorization = new ConfigServerClientAuthorization();
         }
 
         /// <summary>
@@ -196,6 +198,16 @@ namespace Steeltoe.Extensions.Configuration.ConfigServer
         /// Gets or sets returns the request timeout in milliseconds
         /// </summary>
         public virtual int Timeout { get; set; }
+
+        /// <summary>
+        /// Gets authorization data used to obtain access token that will be used to connect to the server.
+        /// </summary>
+        public virtual ConfigServerClientAuthorization Authorization { get; }
+
+        /// <summary>
+        /// Gets a collection of referenced configuration fragments that will be retrieved along with global and application configuration.
+        /// </summary>
+        public Collection<string> Fragments { get; } = new Collection<string>();
 
         internal string GetRawUri()
         {

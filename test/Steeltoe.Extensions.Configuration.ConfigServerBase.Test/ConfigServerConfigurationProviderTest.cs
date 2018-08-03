@@ -447,7 +447,7 @@ namespace Steeltoe.Extensions.Configuration.ConfigServer.Test
             provider.Load();
             Assert.NotNull(TestConfigServerStartup.LastRequest);
             Assert.Equal("/" + settings.Name + "/" + settings.Environment, TestConfigServerStartup.LastRequest.Path.Value);
-            Assert.Equal(16, provider.Properties.Count);
+            Assert.Equal(19, provider.Properties.Count);
         }
 
         [Fact]
@@ -606,6 +606,12 @@ namespace Steeltoe.Extensions.Configuration.ConfigServer.Test
             Assert.Equal("vaulttoken", value);
             Assert.True(provider.TryGet("spring:cloud:config:timeout", out value));
             Assert.Equal("6000", value);
+            Assert.True(provider.TryGet("spring:cloud:config:authorization:uri", out value));
+            Assert.Null(value);
+            Assert.True(provider.TryGet("spring:cloud:config:authorization:id", out value));
+            Assert.Null(value);
+            Assert.True(provider.TryGet("spring:cloud:config:authorization:secret", out value));
+            Assert.Null(value);
         }
 
         [Fact]

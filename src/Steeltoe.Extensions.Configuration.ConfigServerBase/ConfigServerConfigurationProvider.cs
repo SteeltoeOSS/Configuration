@@ -14,6 +14,7 @@
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json.Linq;
 using Steeltoe.Common.Http;
 using System;
 using System.Collections.Generic;
@@ -21,6 +22,7 @@ using System.Globalization;
 using System.IO;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Net.Security;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -40,7 +42,6 @@ namespace Steeltoe.Extensions.Configuration.ConfigServer
         ///   (e.g. spring:cloud:config:env, spring:cloud:config:uri, spring:cloud:config:enabled, etc.)
         /// </summary>
         public const string PREFIX = "spring:cloud:config";
-
         public const string TOKEN_HEADER = "X-Config-Token";
         public const string STATE_HEADER = "X-Config-State";
 
@@ -48,6 +49,8 @@ namespace Steeltoe.Extensions.Configuration.ConfigServer
         protected HttpClient _client;
         protected ILogger _logger;
 
+        private const string GrantType = "grant_type=client_credentials";
+        private const string AccessTokenName = "access_token";
         private const string ArrayPattern = @"(\[[0-9]+\])*$";
         private static readonly char[] COMMA_DELIMIT = new char[] { ',' };
         private static readonly string[] EMPTY_LABELS = new string[] { string.Empty };
@@ -167,29 +170,34 @@ namespace Steeltoe.Extensions.Configuration.ConfigServer
             {
                 foreach (string label in GetLabels())
                 {
-                    // Make Config Server URI from settings
-                    var path = GetConfigServerUri(label);
+                    // Construct all fragments
+                    List<string> fragments = new List<string> { _settings.Name };
+                    fragments.AddRange(_settings.Fragments);
 
-                    // Invoke config server, and wait for results
-                    Task<ConfigEnvironment> task = RemoteLoadAsync(path);
-                    task.Wait();
-                    ConfigEnvironment env = task.Result;
-
-                    // Update config Data dictionary with any results
-                    if (env != null)
+                    foreach (string fragment in fragments)
                     {
-                        _logger?.LogInformation("Located environment: {0}, {1}, {2}, {3}", env.Name, env.Profiles, env.Label, env.Version);
-                        var sources = env.PropertySources;
-                        if (sources != null)
-                        {
-                            int index = sources.Count - 1;
-                            for (; index >= 0; index--)
-                            {
-                                AddPropertySource(sources[index]);
-                            }
-                        }
+                        // Make Config Server URI from settings
+                        var path = GetConfigServerUri(fragment, label);
 
-                        return;
+                        // Invoke config server, and wait for results
+                        ConfigEnvironment env = RemoteLoadAsync(path).GetAwaiter().GetResult();
+
+                        // Update config Data dictionary with any results
+                        if (env != null)
+                        {
+                            _logger?.LogInformation("Located environment: {0}, {1}, {2}, {3}", env.Name, env.Profiles, env.Label, env.Version);
+                            var sources = env.PropertySources;
+                            if (sources != null)
+                            {
+                                int index = sources.Count - 1;
+                                for (; index >= 0; index--)
+                                {
+                                    AddPropertySource(sources[index]);
+                                }
+                            }
+
+                            return;
+                        }
                     }
                 }
             }
@@ -255,6 +263,9 @@ namespace Steeltoe.Extensions.Configuration.ConfigServer
             Data["spring:cloud:config:retry:initialInterval"] = _settings.RetryInitialInterval.ToString();
             Data["spring:cloud:config:retry:maxInterval"] = _settings.RetryMaxInterval.ToString();
             Data["spring:cloud:config:retry:multiplier"] = _settings.RetryMultiplier.ToString();
+            Data["spring:cloud:config:authorization:uri"] = _settings.Authorization.AuthorizationUri;
+            Data["spring:cloud:config:authorization:id"] = _settings.Authorization.ClientId;
+            Data["spring:cloud:config:authorization:secret"] = _settings.Authorization.ClientSecret;
         }
 
         /// <summary>
@@ -275,9 +286,7 @@ namespace Steeltoe.Extensions.Configuration.ConfigServer
             var request = GetRequestMessage(requestUri);
 
             // If certificate validation is disabled, inject a callback to handle properly
-            RemoteCertificateValidationCallback prevValidator = null;
-            SecurityProtocolType prevProtocols = (SecurityProtocolType)0;
-            HttpClientHelper.ConfigureCertificateValidatation(_settings.ValidateCertificates, out prevProtocols, out prevValidator);
+            HttpClientHelper.ConfigureCertificateValidatation(_settings.ValidateCertificates, out SecurityProtocolType prevProtocols, out RemoteCertificateValidationCallback prevValidator);
 
             // Invoke config server
             try
@@ -340,7 +349,18 @@ namespace Steeltoe.Extensions.Configuration.ConfigServer
         /// <returns>The request URI for the Configuration Server</returns>
         protected internal virtual string GetConfigServerUri(string label)
         {
-            var path = _settings.Name + "/" + _settings.Environment;
+            return GetConfigServerUri(_settings.Name, label);
+        }
+
+        /// <summary>
+        /// Create the Uri that will be used in accessing the Configuration Server.
+        /// </summary>
+        /// <param name="fragment">Configuration fragment to retrieve.</param>
+        /// <param name="label">A label to add.</param>
+        /// <returns>The request URI for the Configuration Server.</returns>
+        protected internal virtual string GetConfigServerUri(string fragment, string label)
+        {
+            var path = fragment + "/" + _settings.Environment;
             if (!string.IsNullOrWhiteSpace(label))
             {
                 path = path + "/" + label;
@@ -437,7 +457,52 @@ namespace Steeltoe.Extensions.Configuration.ConfigServer
         /// <returns>The HttpClient used by the provider</returns>
         protected static HttpClient GetHttpClient(ConfigServerClientSettings settings)
         {
-            return HttpClientHelper.GetHttpClient(settings.ValidateCertificates, settings.Timeout);
+            // Create client
+            HttpClient client = HttpClientHelper.GetHttpClient(settings.ValidateCertificates, settings.Timeout);
+
+            // Get access token, if configured
+            string token = GetAccessToken(settings);
+            if (!string.IsNullOrWhiteSpace(token))
+            {
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            }
+
+            return client;
+        }
+
+        /// <summary>
+        /// Gets access token based on client settings.
+        /// </summary>
+        /// <param name="settings">The settings used to obtain access token.</param>
+        /// <returns>Access token.</returns>
+        protected static string GetAccessToken(ConfigServerClientSettings settings)
+        {
+            if (settings.Authorization == null ||
+                string.IsNullOrWhiteSpace(settings.Authorization.AuthorizationUri) ||
+                string.IsNullOrWhiteSpace(settings.Authorization.ClientId) ||
+                string.IsNullOrWhiteSpace(settings.Authorization.ClientSecret))
+            {
+                return null;
+            }
+
+            var message = new HttpRequestMessage
+            {
+                Method = HttpMethod.Post,
+                RequestUri = new Uri(settings.Authorization.AuthorizationUri),
+                Content = new StringContent(GrantType)
+            };
+
+            var encodedClientPair = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{settings.Authorization.ClientId}:{settings.Authorization.ClientSecret}"));
+            message.Content.Headers.ContentType = new MediaTypeWithQualityHeaderValue("application/x-www-form-urlencoded") { CharSet = Encoding.UTF8.HeaderName };
+            message.Headers.Authorization = new AuthenticationHeaderValue("Basic", encodedClientPair);
+
+            using (HttpClient client = new HttpClient())
+            {
+                HttpResponseMessage result = client.SendAsync(message).GetAwaiter().GetResult();
+                string response = result.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+                var obtainedToken = JObject.Parse(response);
+                return (string)obtainedToken[AccessTokenName];
+            }
         }
     }
 }
