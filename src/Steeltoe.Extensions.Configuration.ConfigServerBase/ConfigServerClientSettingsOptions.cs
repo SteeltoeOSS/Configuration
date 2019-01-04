@@ -59,6 +59,8 @@ namespace Steeltoe.Extensions.Configuration.ConfigServer
 
         public SpringCloudConfigRetry Retry { get; set; }
 
+        public SpringCloudConfigDiscovery Discovery { get; set; }
+
         public bool ValidateCertificates => Validate_Certificates;
 
         public string Environment => Env;
@@ -72,6 +74,26 @@ namespace Steeltoe.Extensions.Configuration.ConfigServer
         public double RetryMultiplier => Retry != null ? Retry.Multiplier : ConfigServerClientSettings.DEFAULT_RETRY_MULTIPLIER;
 
         public int RetryAttempts => Retry != null ? Retry.MaxAttempts : ConfigServerClientSettings.DEFAULT_MAX_RETRY_ATTEMPTS;
+
+        public bool DiscoveryEnabled => Discovery != null ? Discovery.Enabled : ConfigServerClientSettings.DEFAULT_DISCOVERY_ENABLED;
+
+        public string DiscoveryServiceId => Discovery != null ? Discovery.ServiceId : ConfigServerClientSettings.DEFAULT_CONFIGSERVER_SERVICEID;
+
+        public string Access_Token_Uri { get; set; }
+
+        public string Client_Secret { get; set; }
+
+        public string Client_Id { get; set; }
+
+        public int TokenTtl { get; set; } = ConfigServerClientSettings.DEFAULT_VAULT_TOKEN_TTL;
+
+        public int TokenRenewRate { get; set; } = ConfigServerClientSettings.DEFAULT_VAULT_TOKEN_RENEW_RATE;
+
+        public string AccessTokenUri => Access_Token_Uri;
+
+        public string ClientSecret => Client_Secret;
+
+        public string ClientId => Client_Id;
 
         public ConfigServerClientSettings Settings
         {
@@ -88,6 +110,8 @@ namespace Steeltoe.Extensions.Configuration.ConfigServer
                 settings.RetryMaxInterval = RetryMaxInterval;
                 settings.RetryMultiplier = RetryMultiplier;
                 settings.Timeout = Timeout;
+                settings.TokenTtl = TokenTtl;
+                settings.TokenRenewRate = TokenRenewRate;
 
                 settings.Environment = Env;
                 settings.Label = Label;
@@ -96,6 +120,12 @@ namespace Steeltoe.Extensions.Configuration.ConfigServer
                 settings.Uri = Uri;
                 settings.Username = Username;
                 settings.Token = Token;
+                settings.AccessTokenUri = Access_Token_Uri;
+                settings.ClientSecret = Client_Secret;
+                settings.ClientId = Client_Id;
+
+                settings.DiscoveryEnabled = DiscoveryEnabled;
+                settings.DiscoveryServiceId = DiscoveryServiceId;
 
                 return settings;
             }

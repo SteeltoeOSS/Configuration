@@ -14,8 +14,10 @@
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Steeltoe.Extensions.Configuration.CloudFoundry;
 using System;
 using System.IO;
+using System.Linq;
 using Xunit;
 
 namespace Steeltoe.Extensions.Configuration.ConfigServer.Test
@@ -46,7 +48,7 @@ namespace Steeltoe.Extensions.Configuration.ConfigServer.Test
         }
 
         [Fact]
-        public void AddConfigServer_AddsConfigServerProviderToProvidersList()
+        public void AddConfigServer_AddsConfigServerSourceToList()
         {
             // Arrange
             var configurationBuilder = new ConfigurationBuilder();
@@ -55,17 +57,9 @@ namespace Steeltoe.Extensions.Configuration.ConfigServer.Test
             // Act and Assert
             configurationBuilder.AddConfigServer(settings);
 
-            ConfigServerConfigurationProvider configServerProvider = null;
-            foreach (IConfigurationProvider provider in configurationBuilder.Sources)
-            {
-                configServerProvider = provider as ConfigServerConfigurationProvider;
-                if (configServerProvider != null)
-                {
-                    break;
-                }
-            }
-
-            Assert.NotNull(configServerProvider);
+            ConfigServerConfigurationSource configServerSource =
+                configurationBuilder.Sources.OfType<ConfigServerConfigurationSource>().SingleOrDefault();
+            Assert.NotNull(configServerSource);
         }
 
         [Fact]
@@ -79,18 +73,11 @@ namespace Steeltoe.Extensions.Configuration.ConfigServer.Test
             // Act and Assert
             configurationBuilder.AddConfigServer(settings, loggerFactory);
 
-            ConfigServerConfigurationProvider configServerProvider = null;
-            foreach (IConfigurationProvider provider in configurationBuilder.Sources)
-            {
-                configServerProvider = provider as ConfigServerConfigurationProvider;
-                if (configServerProvider != null)
-                {
-                    break;
-                }
-            }
+            ConfigServerConfigurationSource configServerSource =
+                configurationBuilder.Sources.OfType<ConfigServerConfigurationSource>().SingleOrDefault();
 
-            Assert.NotNull(configServerProvider);
-            Assert.NotNull(configServerProvider.Logger);
+            Assert.NotNull(configServerSource);
+            Assert.NotNull(configServerSource.LogFactory);
         }
 
         [Fact]
@@ -136,19 +123,11 @@ namespace Steeltoe.Extensions.Configuration.ConfigServer.Test
 
             // Act and Assert
             configurationBuilder.AddConfigServer(csettings);
+            var config = configurationBuilder.Build();
 
-            ConfigServerConfigurationProvider configServerProvider = null;
-            foreach (IConfigurationSource source in configurationBuilder.Sources)
-            {
-                configServerProvider = source as ConfigServerConfigurationProvider;
-                if (configServerProvider != null)
-                {
-                    break;
-                }
-            }
-
+            ConfigServerConfigurationProvider configServerProvider =
+                config.Providers.OfType<ConfigServerConfigurationProvider>().SingleOrDefault();
             Assert.NotNull(configServerProvider);
-            configurationBuilder.Build();
 
             ConfigServerClientSettings settings = configServerProvider.Settings;
 
@@ -200,17 +179,9 @@ namespace Steeltoe.Extensions.Configuration.ConfigServer.Test
 
             // Act and Assert
             configurationBuilder.AddConfigServer(csettings);
-            IConfigurationRoot root = configurationBuilder.Build();
+            IConfigurationRoot config = configurationBuilder.Build();
 
-            ConfigServerConfigurationProvider configServerProvider = null;
-            foreach (IConfigurationSource source in configurationBuilder.Sources)
-            {
-                configServerProvider = source as ConfigServerConfigurationProvider;
-                if (configServerProvider != null)
-                {
-                    break;
-                }
-            }
+            var configServerProvider = config.Providers.OfType<ConfigServerConfigurationProvider>().FirstOrDefault();
 
             Assert.NotNull(configServerProvider);
             ConfigServerClientSettings settings = configServerProvider.Settings;
@@ -250,17 +221,10 @@ namespace Steeltoe.Extensions.Configuration.ConfigServer.Test
 
             // Act and Assert
             configurationBuilder.AddConfigServer(csettings);
-            IConfigurationRoot root = configurationBuilder.Build();
+            IConfigurationRoot config = configurationBuilder.Build();
 
-            ConfigServerConfigurationProvider configServerProvider = null;
-            foreach (IConfigurationSource source in configurationBuilder.Sources)
-            {
-                configServerProvider = source as ConfigServerConfigurationProvider;
-                if (configServerProvider != null)
-                {
-                    break;
-                }
-            }
+            ConfigServerConfigurationProvider configServerProvider =
+                config.Providers.OfType<ConfigServerConfigurationProvider>().SingleOrDefault();
 
             Assert.NotNull(configServerProvider);
             ConfigServerClientSettings settings = configServerProvider.Settings;
@@ -297,17 +261,9 @@ namespace Steeltoe.Extensions.Configuration.ConfigServer.Test
 
             // Act and Assert
             configurationBuilder.AddConfigServer(csettings);
-            IConfigurationRoot root = configurationBuilder.Build();
-
-            ConfigServerConfigurationProvider configServerProvider = null;
-            foreach (IConfigurationSource source in configurationBuilder.Sources)
-            {
-                configServerProvider = source as ConfigServerConfigurationProvider;
-                if (configServerProvider != null)
-                {
-                    break;
-                }
-            }
+            IConfigurationRoot config = configurationBuilder.Build();
+            ConfigServerConfigurationProvider configServerProvider =
+                config.Providers.OfType<ConfigServerConfigurationProvider>().SingleOrDefault();
 
             Assert.NotNull(configServerProvider);
             ConfigServerClientSettings settings = configServerProvider.Settings;
@@ -363,17 +319,10 @@ namespace Steeltoe.Extensions.Configuration.ConfigServer.Test
 
             // Act and Assert
             configurationBuilder.AddConfigServer(csettings);
-            IConfigurationRoot root = configurationBuilder.Build();
+            IConfigurationRoot config = configurationBuilder.Build();
 
-            ConfigServerConfigurationProvider configServerProvider = null;
-            foreach (IConfigurationSource source in configurationBuilder.Sources)
-            {
-                configServerProvider = source as ConfigServerConfigurationProvider;
-                if (configServerProvider != null)
-                {
-                    break;
-                }
-            }
+            ConfigServerConfigurationProvider configServerProvider =
+                config.Providers.OfType<ConfigServerConfigurationProvider>().SingleOrDefault();
 
             Assert.NotNull(configServerProvider);
             ConfigServerClientSettings settings = configServerProvider.Settings;
@@ -386,6 +335,108 @@ namespace Steeltoe.Extensions.Configuration.ConfigServer.Test
             Assert.Equal("myLabel", settings.Label);
             Assert.Equal("myUsername", settings.Username);
             Assert.Equal("myPassword", settings.Password);
+        }
+
+        [Fact]
+        public void AddConfigServer_VCAP_SERVICES_Override_Defaults()
+        {
+            // Arrange
+            var configurationBuilder = new ConfigurationBuilder();
+            const string vcap_application = @" 
+            {
+                'application_id': 'fa05c1a9-0fc1-4fbd-bae1-139850dec7a3',
+                'application_name': 'foo',
+                'application_uris': [
+                    'foo.10.244.0.34.xip.io'
+                ],
+                'application_version': 'fb8fbcc6-8d58-479e-bcc7-3b4ce5a7f0ca',
+                'limits': {
+                    'disk': 1024,
+                    'fds': 16384,
+                    'mem': 256
+                },
+                'name': 'foo',
+                'space_id': '06450c72-4669-4dc6-8096-45f9777db68a',
+                'space_name': 'my-space',
+                'uris': [
+                    'foo.10.244.0.34.xip.io'
+                ],
+                'users': null,
+                'version': 'fb8fbcc6-8d58-479e-bcc7-3b4ce5a7f0ca'
+            }";
+
+            const string vcap_services = @"
+            {
+                'p-config-server': [
+                {
+                    'name': 'config-server',
+                    'instance_name': 'config-server',
+                    'binding_name': null,
+                    'credentials': {
+                        'uri': 'https://uri-from-vcap-services',
+                        'client_secret': 'some-secret',
+                        'client_id': 'some-client-id',
+                        'access_token_uri': 'https://uaa-uri-from-vcap-services/oauth/token'
+                    },
+                    'syslog_drain_url': null,
+                    'volume_mounts': [],
+                    'label': 'p-config-server',
+                    'plan': 'standard',
+                    'provider': null,
+                    'tags': [
+                        'configuration',
+                        'spring-cloud'
+                    ]
+                }]
+            }";
+            Environment.SetEnvironmentVariable("VCAP_APPLICATION", vcap_application);
+            Environment.SetEnvironmentVariable("VCAP_SERVICES", vcap_services);
+            var settings = new ConfigServerClientSettings() { Uri = "https://uri-from-settings" };
+
+            // Act
+            configurationBuilder
+                .AddEnvironmentVariables()
+                .AddConfigServer(settings);
+            var config = configurationBuilder.Build();
+            var configServerProvider = config.Providers.OfType<ConfigServerConfigurationProvider>().FirstOrDefault();
+
+            // Assert
+            Assert.NotNull(configServerProvider);
+            Assert.IsType<ConfigServerConfigurationProvider>(configServerProvider);
+
+            Assert.NotEqual("https://uri-from-settings", configServerProvider.Settings.Uri);
+            Assert.Equal("https://uri-from-vcap-services", configServerProvider.Settings.Uri);
+
+            // reset to avoid breaking other tests
+            Environment.SetEnvironmentVariable("VCAP_APPLICATION", string.Empty);
+            Environment.SetEnvironmentVariable("VCAP_SERVICES", string.Empty);
+        }
+
+        [Fact]
+        public void AddConfigServer_AddsCloudFoundryConfigurationSource()
+        {
+            // arrange
+            var configurationBuilder = new ConfigurationBuilder();
+
+            // act
+            configurationBuilder.AddConfigServer();
+
+            // assert
+            Assert.Single(configurationBuilder.Sources.OfType<CloudFoundryConfigurationSource>());
+        }
+
+        [Fact]
+        public void AddConfigServer_Only_AddsOneCloudFoundryConfigurationSource()
+        {
+            // arrange
+            var configurationBuilder = new ConfigurationBuilder();
+
+            // act
+            configurationBuilder.AddCloudFoundry(new CustomCloudFoundrySettingsReader());
+            configurationBuilder.AddConfigServer();
+
+            // assert
+            Assert.Single(configurationBuilder.Sources.Where(c => c.GetType() == typeof(CloudFoundryConfigurationSource)));
         }
     }
 }

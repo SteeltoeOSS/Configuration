@@ -14,19 +14,19 @@
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Steeltoe.Extensions.Configuration.ConfigServer;
+using Steeltoe.Common;
+using Steeltoe.Extensions.Configuration.CloudFoundry;
 using System;
+using System.Linq;
 using System.Reflection;
 
 namespace Steeltoe.Extensions.Configuration.ConfigServer
 {
     public static class ConfigServerConfigurationBuilderExtensions
     {
-        private const string DEFAULT_ENVIRONMENT = "Production";
-
         public static IConfigurationBuilder AddConfigServer(this IConfigurationBuilder configurationBuilder, ILoggerFactory logFactory = null)
         {
-            return configurationBuilder.AddConfigServer(DEFAULT_ENVIRONMENT, Assembly.GetEntryAssembly()?.GetName().Name, logFactory);
+            return configurationBuilder.AddConfigServer(ConfigServerClientSettings.DEFAULT_ENVIRONMENT, Assembly.GetEntryAssembly()?.GetName().Name, logFactory);
         }
 
         public static IConfigurationBuilder AddConfigServer(this IConfigurationBuilder configurationBuilder, string environment, ILoggerFactory logFactory = null)
@@ -44,7 +44,8 @@ namespace Steeltoe.Extensions.Configuration.ConfigServer
             var settings = new ConfigServerClientSettings()
             {
                 Name = applicationName ?? Assembly.GetEntryAssembly()?.GetName().Name,
-                Environment = environment ?? DEFAULT_ENVIRONMENT
+
+                Environment = environment ?? ConfigServerClientSettings.DEFAULT_ENVIRONMENT
             };
 
             return configurationBuilder.AddConfigServer(settings, logFactory);
@@ -62,7 +63,12 @@ namespace Steeltoe.Extensions.Configuration.ConfigServer
                 throw new ArgumentNullException(nameof(defaultSettings));
             }
 
-            configurationBuilder.Add(new ConfigServerConfigurationProvider(defaultSettings, logFactory));
+            if (!configurationBuilder.Sources.Any(c => c.GetType() == typeof(CloudFoundryConfigurationSource)))
+            {
+                configurationBuilder.Add(new CloudFoundryConfigurationSource());
+            }
+
+            configurationBuilder.Add(new ConfigServerConfigurationSource(defaultSettings, configurationBuilder.Sources, configurationBuilder.Properties, logFactory));
             return configurationBuilder;
         }
     }
